@@ -144,7 +144,7 @@ export default function UpdateProfilePage() {
     _hover={{
         bg: "red.500",
     }}
-    onClick={() => window.location.href = `abc.com/${user.username}`} // Redirect to user's profile page
+    onClick={() => window.location.href = `https://threads-clone-ph1a.onrender.com/${user.username}`} // Redirect to user's profile page
 >
     Cancel
 </Button>
