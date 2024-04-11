@@ -1,89 +1,177 @@
-import { Avatar } from "@chakra-ui/avatar";
-import { Image } from "@chakra-ui/image";
-import { Box, Flex, Text } from "@chakra-ui/layout";
-import { BsThreeDots } from "react-icons/bs";
-import { Link } from "react-router-dom";
-import Actions from "./Actions";
-import { useState } from "react";
+import React from "react";
+import {
+    Button,
+    Flex,
+    FormControl,
+    FormLabel,
+    Heading,
+    Input,
+    Stack,
+    useColorModeValue,
+    Avatar,
+    Center,
+} from "@chakra-ui/react";
+import { useRef, useState } from "react";
+import { useHistory } from "react-router-dom"; // Import useHistory
+import { useRecoilState } from "recoil";
+import userAtom from "../atoms/userAtom";
+import usePreviewImg from "../hooks/usePreviewImg";
+import useShowToast from "../hooks/useShowToast";
 
-const UserPost = ({ postImg, postTitle, likes, replies }) => {
-	const [liked, setLiked] = useState(false);
-	return (
-		<Link to={"/markzuckerberg/post/1"}>
-			<Flex gap={3} mb={4} py={5}>
-				<Flex flexDirection={"column"} alignItems={"center"}>
-					<Avatar size='md' name='Mark Zuckerberg' src='/zuck-avatar.png' />
-					<Box w='1px' h={"full"} bg='gray.light' my={2}></Box>
-					<Box position={"relative"} w={"full"}>
-						<Avatar
-							size='xs'
-							name='John doe'
-							src='https://bit.ly/dan-abramov'
-							position={"absolute"}
-							top={"0px"}
-							left='15px'
-							padding={"2px"}
-						/>
-						<Avatar
-							size='xs'
-							name='John doe'
-							src='https://bit.ly/sage-adebayo'
-							position={"absolute"}
-							bottom={"0px"}
-							right='-5px'
-							padding={"2px"}
-						/>
-						<Avatar
-							size='xs'
-							name='John doe'
-							src='https://bit.ly/prosper-baba'
-							position={"absolute"}
-							bottom={"0px"}
-							left='4px'
-							padding={"2px"}
-						/>
-					</Box>
-				</Flex>
-				<Flex flex={1} flexDirection={"column"} gap={2}>
-					<Flex justifyContent={"space-between"} w={"full"}>
-						<Flex w={"full"} alignItems={"center"}>
-							<Text fontSize={"sm"} fontWeight={"bold"}>
-								markzuckerberg
-							</Text>
-							<Image src='/verified.png' w={4} h={4} ml={1} />
-						</Flex>
-						<Flex gap={4} alignItems={"center"}>
-							<Text fontStyle={"sm"} color={"gray.light"}>
-								1d
-							</Text>
-							<BsThreeDots />
-						</Flex>
-					</Flex>
+export default function UpdateProfilePage() {
+    const [user, setUser] = useRecoilState(userAtom);
+    const [inputs, setInputs] = useState({
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+        password: "",
+    });
+    const fileRef = useRef(null);
+    const [updating, setUpdating] = useState(false);
+    const history = useHistory(); // Initialize useHistory hook
 
-					<Text fontSize={"sm"}>{postTitle}</Text>
-					{postImg && (
-						<Box borderRadius={6} overflow={"hidden"} border={"1px solid"} borderColor={"gray.light"}>
-							<Image src={postImg} w={"full"} />
-						</Box>
-					)}
+    const showToast = useShowToast();
 
-					<Flex gap={3} my={1}>
-						<Actions liked={liked} setLiked={setLiked} />
-					</Flex>
+    const { handleImageChange, imgUrl } = usePreviewImg();
 
-					<Flex gap={2} alignItems={"center"}>
-						<Text color={"gray.light"} fontSize='sm'>
-							{replies} replies
-						</Text>
-						<Box w={0.5} h={0.5} borderRadius={"full"} bg={"gray.light"}></Box>
-						<Text color={"gray.light"} fontSize='sm'>
-							{likes} likes
-						</Text>
-					</Flex>
-				</Flex>
-			</Flex>
-		</Link>
-	);
-};
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (updating) return;
+        setUpdating(true);
+        try {
+            const res = await fetch(`/api/users/update/${user._id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ ...inputs, profilePic: imgUrl }),
+            });
+            const data = await res.json(); // updated user object
+            if (data.error) {
+                showToast("Error", data.error, "error");
+                return;
+            }
+            showToast("Success", "Profile updated successfully", "success");
+            setUser(data);
+            localStorage.setItem("user-threads", JSON.stringify(data));
+        } catch (error) {
+            showToast("Error", error, "error");
+        } finally {
+            setUpdating(false);
+        }
+    };
 
-export default UserPost;
+    const handleCancel = () => {
+        // Redirect to the user's profile page
+        history.push(`/${user.username}`);
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <Flex align={"center"} justify={"center"} my={6}>
+                <Stack
+                    spacing={4}
+                    w={"full"}
+                    maxW={"md"}
+                    bg={useColorModeValue("white", "gray.dark")}
+                    rounded={"xl"}
+                    boxShadow={"lg"}
+                    p={6}
+                >
+                    <Heading lineHeight={1.1} fontSize={{ base: "2xl", sm: "3xl" }}>
+                        User Profile Edit
+                    </Heading>
+                    <FormControl id='userName'>
+                        <Stack direction={["column", "row"]} spacing={6}>
+                            <Center>
+                                <Avatar size='xl' boxShadow={"md"} src={imgUrl || user.profilePic} />
+                            </Center>
+                            <Center w='full'>
+                                <Button w='full' onClick={() => fileRef.current.click()}>
+                                    Change Avatar
+                                </Button>
+                                <Input type='file' hidden ref={fileRef} onChange={handleImageChange} />
+                            </Center>
+                        </Stack>
+                    </FormControl>
+                    <FormControl>
+                        <FormLabel>Full name</FormLabel>
+                        <Input
+                            placeholder='John Doe'
+                            value={inputs.name}
+                            onChange={(e) => setInputs({ ...inputs, name: e.target.value })}
+                            _placeholder={{ color: "gray.500" }}
+                            type='text'
+                        />
+                    </FormControl>
+                    <FormControl>
+                        <FormLabel>User name</FormLabel>
+                        <Input
+                            placeholder='johndoe'
+                            value={inputs.username}
+                            onChange={(e) => setInputs({ ...inputs, username: e.target.value })}
+                            _placeholder={{ color: "gray.500" }}
+                            type='text'
+                        />
+                    </FormControl>
+                    <FormControl>
+                        <FormLabel>Email address</FormLabel>
+                        <Input
+                            placeholder='your-email@example.com'
+                            value={inputs.email}
+                            onChange={(e) => setInputs({ ...inputs, email: e.target.value })}
+                            _placeholder={{ color: "gray.500" }}
+                            type='email'
+                        />
+                    </FormControl>
+                    <FormControl>
+                        <FormLabel>Bio</FormLabel>
+                        <Input
+                            placeholder='Your bio.'
+                            value={inputs.bio}
+                            onChange={(e) => setInputs({ ...inputs, bio: e.target.value })}
+                            _placeholder={{ color: "gray.500" }}
+                            type='text'
+                        />
+                    </FormControl>
+                    <FormControl>
+                        <FormLabel>Password</FormLabel>
+                        <Input
+                            placeholder='password'
+                            value={inputs.password}
+                            onChange={(e) => setInputs({ ...inputs, password: e.target.value })}
+                            _placeholder={{ color: "gray.500" }}
+                            type='password'
+                        />
+                    </FormControl>
+                    <Stack spacing={6} direction={["column", "row"]}>
+                        <Button
+                            bg={"red.400"}
+                            color={"white"}
+                            w='full'
+                            _hover={{
+                                bg: "red.500",
+                            }}
+                            onClick={handleCancel} // Add onClick event handler for cancel button
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            bg={"green.400"}
+                            color={"white"}
+                            w='full'
+                            _hover={{
+                                bg: "green.500",
+                            }}
+                            type='submit'
+                            isLoading={updating}
+                        >
+                            Submit
+                        </Button>
+                    </Stack>
+                </Stack>
+            </Flex>
+        </form>
+    );
+}
